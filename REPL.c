@@ -78,6 +78,8 @@ void deserialize_row(void *source, Row* destination){
 	memcpy(&(destination->id), source +ID_OFFSET, ID_SIZE);
 	memcpy(&(destination->username), source +USERNAME_OFFSET, USERNAME_SIZE);
 	memcpy(&(destination->email), source +EMAIL_OFFSET, EMAIL_SIZE);
+	printf("mem addr %d\n", (int)destination);
+	print_row(destination);
 }
 
 void* row_slot(Table* table, uint32_t row_num){
@@ -89,6 +91,8 @@ void* row_slot(Table* table, uint32_t row_num){
 	}
 	uint32_t row_offset = row_num % ROWS_PER_PAGE;
 	uint32_t byte_offset = row_offset * ROW_SIZE;
+	printf("page_num %d, row offset %d, byte offset %d, ROWS_PER_PAGE %d\n", page_num, row_offset, byte_offset, ROWS_PER_PAGE);
+	printf("row num %d , row num%ROWS_PER_PAGE %d-> row slot = %d", row_num, (row_num%ROWS_PER_PAGE), (page+byte_offset));
 	return page + byte_offset;
 }
 
@@ -148,25 +152,29 @@ PrepareResult prepare_statement(InputBuffer* input_buffer, Statement* statement)
 	return PREPARE_UNRECOGNIZED_STATEMENT;
 }
 
-ExecuteResult execute_insert(Statement* statement, Table* table){
-	if(table->num_rows >= TABLE_MAX_ROWS){
-		return EXECUTE_TABLE_FULL;
-	}
-	Row* row_to_insert = &(statement->row_to_insert);
-	serialize_row(row_to_insert, row_slot(table, table->num_rows));
-	table->num_rows +=1;
-	return EXECUTE_SUCCESS;
-}
-
 ExecuteResult execute_select(Statement* statement, Table* table){
 	Row row;
 	for(uint32_t i=0; i<table->num_rows; i++){
+		printf("select row %d over table->num_rows = %d\n", i, table->num_rows);
 		deserialize_row(row_slot(table, i), &row);
 		print_row(&row);
 	}
 	return EXECUTE_SUCCESS;
 }
 
+
+ExecuteResult execute_insert(Statement* statement, Table* table){
+	printf("table->num_rows = %d\nTABLE_MAX_ROWS = %d\n",table->num_rows, TABLE_MAX_ROWS);
+	if(table->num_rows >= TABLE_MAX_ROWS){
+		return EXECUTE_TABLE_FULL;
+	}
+	Row* row_to_insert = &(statement->row_to_insert);
+	serialize_row(row_to_insert, row_slot(table, table->num_rows));
+	table->num_rows +=1;
+	execute_select(statement, table);
+
+	return EXECUTE_SUCCESS;
+}
 ExecuteResult  execute_statement(Statement* statement, Table* table){
 	switch(statement->type){
 		case (STATEMENT_INSERT):
